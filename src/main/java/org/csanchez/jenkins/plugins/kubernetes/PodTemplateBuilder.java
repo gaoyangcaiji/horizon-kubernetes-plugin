@@ -132,9 +132,9 @@ public class PodTemplateBuilder {
             .getProperty(PodTemplateStepExecution.class.getName() + ".defaultImage", defaultImageName);
 
     static final String DEFAULT_JNLP_CONTAINER_MEMORY_REQUEST = System
-            .getProperty(PodTemplateStepExecution.class.getName() + ".defaultContainer.defaultMemoryRequest", "256Mi");
+            .getProperty(PodTemplateStepExecution.class.getName() + ".defaultContainer.defaultMemoryRequest", "256");
     static final String DEFAULT_JNLP_CONTAINER_CPU_REQUEST = System
-            .getProperty(PodTemplateStepExecution.class.getName() + ".defaultContainer.defaultCpuRequest", "100m");
+            .getProperty(PodTemplateStepExecution.class.getName() + ".defaultContainer.defaultCpuRequest", "1");
 
     static final String DEFAULT_JNLP_CONTAINER_MEMORY_LIMIT = System
             .getProperty(PodTemplateStepExecution.class.getName() + ".defaultContainer.defaultMemoryLimit");

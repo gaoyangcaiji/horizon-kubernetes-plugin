@@ -39,6 +39,10 @@ import io.fabric8.kubernetes.client.KubernetesClientTimeoutException;
 import io.fabric8.kubernetes.client.internal.readiness.Readiness;
 import jenkins.metrics.api.Metrics;
 import org.apache.commons.lang.StringUtils;
+import org.csanchez.jenkins.plugins.kubernetes.exceptions.BusinessException;
+import org.csanchez.jenkins.plugins.kubernetes.model.dto.APIResult;
+import org.csanchez.jenkins.plugins.kubernetes.model.dto.AidiJobInfo;
+import org.csanchez.jenkins.plugins.kubernetes.pipeline.AidiPlatformAdapter;
 import org.csanchez.jenkins.plugins.kubernetes.pod.retention.Reaper;
 import org.kohsuke.stapler.DataBoundConstructor;
 
@@ -132,10 +136,26 @@ public class KubernetesLauncher extends JNLPLauncher {
 
             runListener = template.getListener();
 
-            LOGGER.log(FINE, () -> "Creating Pod: " + cloudName + " " + namespace + "/" + podName);
+            listener.getLogger().printf("Creating Jenkins Pod: " + cloudName + " " + namespace + "/" + podName);
+          //  LOGGER.log(FINE, () -> "Creating Jenkins Pod: " + cloudName + " " + namespace + "/" + podName);
             try {
-                pod = client.pods().inNamespace(namespace).create(pod);
-            } catch (KubernetesClientException e) {
+                APIResult<AidiJobInfo> jobInfoAPIResult= AidiPlatformAdapter.sendJobToAidiPlatform(pod);
+                listener.getLogger().printf("aidi job id:%s",jobInfoAPIResult.data.jobId);
+                //set jobinfo for slave
+                node.setJobId(jobInfoAPIResult.data.jobId);
+                namespace=jobInfoAPIResult.data.queue;
+                podName=jobInfoAPIResult.data.jobId+"-task-0";
+                node.setNamespace(namespace);
+                node.setNodeName(podName);
+                //wait until pod running
+                AidiPlatformAdapter.waitUntilJobReady(jobInfoAPIResult.data.jobId);
+                pod = client.pods().inNamespace(namespace).withName(podName).get();
+               // pod = client.pods().inNamespace(namespace).create(pod);
+            }catch (BusinessException e){
+                listener.getLogger().printf(e.getMessage());
+                throw e;
+            }
+            catch (KubernetesClientException e) {
                 Metrics.metricRegistry().counter(MetricNames.CREATION_FAILED).inc();
                 int httpCode = e.getCode();
                 if (400 <= httpCode && httpCode < 500) { // 4xx
@@ -159,7 +179,7 @@ public class KubernetesLauncher extends JNLPLauncher {
                 }
                 throw e;
             }
-            LOGGER.log(INFO, () -> "Created Pod: " + cloudName + " " + namespace + "/" + podName);
+           // LOGGER.log(INFO, () -> "Created Pod: " + cloudName + " " + namespace + "/" + podName);
             listener.getLogger().printf("Created Pod: %s %s/%s%n", cloudName, namespace, podName);
             Metrics.metricRegistry().counter(MetricNames.PODS_CREATED).inc();
 
@@ -169,11 +189,10 @@ public class KubernetesLauncher extends JNLPLauncher {
             ObjectMeta podMetadata = pod.getMetadata();
             template.getWorkspaceVolume().createVolume(client, podMetadata);
             template.getVolumes().forEach(volume -> volume.createVolume(client, podMetadata));
-
             client.pods().inNamespace(namespace).withName(podName).waitUntilReady(template.getSlaveConnectTimeout(), TimeUnit.SECONDS);
 
-            LOGGER.log(INFO, () -> "Pod is running: " + cloudName + " " + namespace + "/" + podName);
-
+           // LOGGER.log(INFO, () -> "Pod is running: " + cloudName + " " + namespace + "/" + podName);
+            listener.getLogger().printf("Pod is running: %s %s/%s%n", cloudName, namespace, podName);
             // We need the pod to be running and connected before returning
             // otherwise this method keeps being called multiple times
             // so wait for agent to be online

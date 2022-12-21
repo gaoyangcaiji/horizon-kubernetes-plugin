@@ -24,6 +24,10 @@ import jenkins.metrics.api.Metrics;
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.Validate;
+import org.csanchez.jenkins.plugins.kubernetes.exceptions.BusinessException;
+import org.csanchez.jenkins.plugins.kubernetes.model.dto.APIResult;
+import org.csanchez.jenkins.plugins.kubernetes.model.dto.AidiJobInfo;
+import org.csanchez.jenkins.plugins.kubernetes.pipeline.AidiPlatformAdapter;
 import org.csanchez.jenkins.plugins.kubernetes.pod.retention.PodRetention;
 import org.jenkinsci.plugins.durabletask.executors.OnceRetentionStrategy;
 import org.jenkinsci.plugins.kubernetes.auth.KubernetesAuthException;
@@ -75,6 +79,7 @@ public class KubernetesSlave extends AbstractCloudSlave {
 
     private final String cloudName;
     private String namespace;
+    private String jobId;
     @NonNull
     private String podTemplateId;
     private transient PodTemplate template;
@@ -167,6 +172,15 @@ public class KubernetesSlave extends AbstractCloudSlave {
 
     public void setNamespace(@NonNull String namespace) {
         this.namespace = namespace;
+    }
+
+
+    public String getJobId() {
+        return jobId;
+    }
+
+    public void setJobId(@NonNull String jobId) {
+        this.jobId = jobId;
     }
 
     @NonNull
@@ -351,6 +365,8 @@ public class KubernetesSlave extends AbstractCloudSlave {
 
     private void deleteSlavePod(TaskListener listener, KubernetesClient client) throws IOException {
         try {
+            //stop job
+            APIResult<AidiJobInfo> result=  AidiPlatformAdapter.stopAidiJob(getJobId());
             Boolean deleted = client.pods().inNamespace(getNamespace()).withName(name).
                 cascading(true). // TODO JENKINS-58306 pending https://github.com/fabric8io/kubernetes-client/pull/1620
                 delete();
@@ -360,7 +376,14 @@ public class KubernetesSlave extends AbstractCloudSlave {
                 listener.error(msg);
                 return;
             }
-        } catch (KubernetesClientException e) {
+        }catch (BusinessException e){
+            String msg = String.format("Failed to stop job for agent %s/%s: %s", getNamespace(), jobId,
+                    e.getMessage());
+            LOGGER.log(Level.WARNING, msg, e);
+            listener.error(msg);
+            return;
+        }
+        catch (KubernetesClientException e) {
             String msg = String.format("Failed to delete pod for agent %s/%s: %s", getNamespace(), name,
                     e.getMessage());
             LOGGER.log(Level.WARNING, msg, e);
