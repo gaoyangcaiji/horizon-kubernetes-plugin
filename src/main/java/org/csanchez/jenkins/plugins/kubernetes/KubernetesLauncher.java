@@ -145,11 +145,12 @@ public class KubernetesLauncher extends JNLPLauncher {
                 node.setJobId(jobInfoAPIResult.data.jobId);
                 namespace=jobInfoAPIResult.data.queue;
                 podName=jobInfoAPIResult.data.jobId+"-task-0";
-                node.setNamespace(namespace);
-                node.setNodeName(podName);
+//                node.setNamespace(namespace);
+//                node.setNodeName(podName);
                 //wait until pod running
                 AidiPlatformAdapter.waitUntilJobReady(jobInfoAPIResult.data.jobId);
                 pod = client.pods().inNamespace(namespace).withName(podName).get();
+                node.assignPod(pod);
                // pod = client.pods().inNamespace(namespace).create(pod);
             }catch (BusinessException e){
                 listener.getLogger().printf(e.getMessage());

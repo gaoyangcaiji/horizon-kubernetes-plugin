@@ -24,7 +24,7 @@ public class AidiJobInfoBuilder implements Builder{
         aidiJobInfo.jobName=pod.getMetadata().getName();
         Container jnlpContainer= pod.getSpec().getContainers().stream().filter(u -> u.getName().contains("jnlp")).findFirst().get();
         //aidiJobInfo.command= jnlpContainer.getCommand().toString();
-        aidiJobInfo.command= "sleep 30000 && export JENKINS_AGENT_NAME=$POD_NAME && export JENKINS_NAME=$POD_NAME && /usr/local/bin/jenkins-agent";
+        aidiJobInfo.command= "/usr/local/bin/jenkins-agent";
         aidiJobInfo.jobSpec.image=jnlpContainer.getImage();
         //set default workspace path
         aidiJobInfo.jobSpec.extraPodSpec.sharedVolumeMountPaths.add("/home/jenkins/agent");
@@ -83,11 +83,6 @@ public class AidiJobInfoBuilder implements Builder{
             //set job spec
             containerItem.name=item.getName();
             containerItem.image=item.getImage();
-           // containerItem.command=item.getCommand();
-//            List<String>  commands=new ArrayList<String>();
-//            commands.add("sh");
-//            commands.add("-c");
-//            commands.add("sleep 3000");
             containerItem.command="sleep 3000";
 
             //set job resource
